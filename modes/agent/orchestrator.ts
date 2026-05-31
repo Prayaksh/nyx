@@ -8,6 +8,8 @@ import { stepCountIs, ToolLoopAgent } from "ai";
 import { getAgentModel } from "../../ai/ai.config.ts";
 import { renderTerminalMarkdown } from "../../tui/terminalMd.ts";
 import { runApprovalFlow } from "./approval.ts";
+import { setTimeout as sleep } from "node:timers/promises";
+import { spinner } from "@clack/prompts";
 
 export async function runAgentMode() {
   console.log(chalk.bold("\n Agent mode \n"));
@@ -19,11 +21,14 @@ export async function runAgentMode() {
 
   if (isCancel(goal) || !goal.trim()) return;
 
+  // const agentSpinner = spinner();
+  // agentSpinner.start(chalk.dim("Initializing agent"));
+
   const config = defaultAgentConfig();
   const tracker = new ActionTracker();
   const executor = new ToolExecutor(tracker, config);
   const tools = createAgentTools(executor);
-
+  console.log(chalk.blueBright("Tracker and Executor is built"));
   const agent = new ToolLoopAgent({
     model: getAgentModel(),
     stopWhen: stepCountIs(40),
@@ -33,21 +38,40 @@ export async function runAgentMode() {
     ].join("\n"),
     tools,
   });
-  const result = await agent.generate({
-    prompt: goal.trim(),
-    onStepFinish: ({ toolCalls }) => {
-      for (const tc of toolCalls) {
-        const preview = JSON.stringify(tc.input).slice(0, 160);
-        console.log(
-          chalk.green("  ✓"),
-          chalk.bold(String(tc.toolName)),
-          chalk.dim(preview + (preview.length >= 160 ? "..." : "")),
-        );
-      }
-    },
-  });
+  console.log(chalk.blueBright("ToolLoopAgent is built"));
 
-  if (result.text?.trim()) console.log(renderTerminalMarkdown(result.text));
+  try {
+    console.log(chalk.blueBright("Entered TRY block"));
+
+    const result = await agent.generate({
+      prompt: goal.trim(),
+      onStepFinish: ({ toolCalls }) => {
+        // const lastTool = toolCalls[toolCalls.length - 1];
+        // if (lastTool) {
+        //   agentSpinner.message(`Executing: ${String(lastTool.toolName)}...`);
+        // }
+        console.log(chalk.blueBright("Agent Generation initialized"));
+
+        for (const tc of toolCalls) {
+          const preview = JSON.stringify(tc.input).slice(0, 160);
+          console.log(
+            chalk.green("  ✓"),
+            chalk.bold(String(tc.toolName)),
+            chalk.dim(preview + (preview.length >= 160 ? "..." : "")),
+          );
+        }
+      },
+    });
+    // agentSpinner.stop(chalk.green("\n✓ Agent finished thinking"));
+    if (result.text?.trim()) console.log(renderTerminalMarkdown(result.text));
+  } catch (error) {
+    // agentSpinner.stop(chalk.red.dim("\n✗ Agent failed"));
+    console.log(chalk.blueBright("Error Detected"));
+
+    console.error(error);
+    return;
+  }
+  console.log(chalk.blueBright("TRY CATCH WORKING"));
 
   const ok = await runApprovalFlow(tracker);
   if (!ok) return executor.clearStaging();

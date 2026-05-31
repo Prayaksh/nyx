@@ -123,7 +123,6 @@ export async function runWakeUp() {
   }
 
   if (mode === "cli") {
-    console.log(chalk.dim("Starting cli mode"));
     await runCliMode();
   } else if (mode === "telegram") {
     console.log(chalk.dim("Starting telegram mode"));
