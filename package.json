@@ -1,0 +1,30 @@
+{
+  "name": "nyx",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "nyx": "index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/marked-terminal": "^6.1.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@clack/core": "^1.4.0",
+    "@clack/prompts": "^1.5.0",
+    "@openrouter/agent": "^0.7.0",
+    "@openrouter/ai-sdk-provider": "^2.9.0",
+    "@types/node": "^25.9.1",
+    "ai": "^6.0.193",
+    "chalk": "^5.6.2",
+    "commander": "^15.0.0",
+    "diff": "^9.0.0",
+    "figlet": "^1.11.0",
+    "marked": "^18.0.4",
+    "marked-terminal": "^7.3.0"
+  }
+}
