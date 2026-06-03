@@ -21,14 +21,13 @@ export async function runAgentMode() {
 
   if (isCancel(goal) || !goal.trim()) return;
 
-  // const agentSpinner = spinner();
-  // agentSpinner.start(chalk.dim("Initializing agent"));
+  const agentSpinner = spinner();
+  agentSpinner.start(chalk.dim("Initializing agent"));
 
   const config = defaultAgentConfig();
   const tracker = new ActionTracker();
   const executor = new ToolExecutor(tracker, config);
   const tools = createAgentTools(executor);
-  console.log(chalk.blueBright("Tracker and Executor is built"));
   const agent = new ToolLoopAgent({
     model: getAgentModel(),
     stopWhen: stepCountIs(40),
@@ -38,19 +37,17 @@ export async function runAgentMode() {
     ].join("\n"),
     tools,
   });
-  console.log(chalk.blueBright("ToolLoopAgent is built"));
 
   try {
-    console.log(chalk.blueBright("Entered TRY block"));
-
     const result = await agent.generate({
       prompt: goal.trim(),
       onStepFinish: ({ toolCalls }) => {
-        // const lastTool = toolCalls[toolCalls.length - 1];
-        // if (lastTool) {
-        //   agentSpinner.message(`Executing: ${String(lastTool.toolName)}...`);
-        // }
-        console.log(chalk.blueBright("Agent Generation initialized"));
+        const lastTool = toolCalls[toolCalls.length - 1];
+        if (lastTool) {
+          agentSpinner.message(
+            chalk.dim(`Executing: ${String(lastTool.toolName)}...\n`),
+          );
+        }
 
         for (const tc of toolCalls) {
           const preview = JSON.stringify(tc.input).slice(0, 160);
@@ -62,16 +59,13 @@ export async function runAgentMode() {
         }
       },
     });
-    // agentSpinner.stop(chalk.green("\n✓ Agent finished thinking"));
+    agentSpinner.stop(chalk.green("\n✓ Agent finished thinking"));
     if (result.text?.trim()) console.log(renderTerminalMarkdown(result.text));
   } catch (error) {
-    // agentSpinner.stop(chalk.red.dim("\n✗ Agent failed"));
-    console.log(chalk.blueBright("Error Detected"));
-
+    agentSpinner.stop(chalk.red.dim("\n✗ Agent failed"));
     console.error(error);
     return;
   }
-  console.log(chalk.blueBright("TRY CATCH WORKING"));
 
   const ok = await runApprovalFlow(tracker);
   if (!ok) return executor.clearStaging();

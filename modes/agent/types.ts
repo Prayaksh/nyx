@@ -20,6 +20,7 @@ export interface ActionLog {
     toolResult?: string;
     error?: string;
     command?: string;
+    working?: string;
   };
   status: ActionStatus;
   userApproved?: boolean;

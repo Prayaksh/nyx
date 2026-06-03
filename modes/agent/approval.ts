@@ -1,4 +1,4 @@
-import { select, isCancel } from "@clack/prompts";
+import { select, isCancel, spinner } from "@clack/prompts";
 import chalk from "chalk";
 import type { ActionTracker } from "./actionTracker.ts";
 import type { ActionLog } from "./types.ts";
@@ -73,7 +73,6 @@ export async function runApprovalFlow(
     );
     return false;
   }
-
   const choice = await select({
     message: "Apply staged changes?",
     options: [
@@ -82,7 +81,6 @@ export async function runApprovalFlow(
       { value: "cancel", label: "Cancel" },
     ],
   });
-
   if (isCancel(choice) || choice === "cancel") {
     for (const a of pending) tracker.updateStatus(a.id, "rejected", false);
     return false;

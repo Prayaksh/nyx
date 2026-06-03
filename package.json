@@ -16,6 +16,7 @@
   "dependencies": {
     "@clack/core": "^1.4.0",
     "@clack/prompts": "^1.5.0",
+    "@mendable/firecrawl-js": "^4.25.1",
     "@openrouter/agent": "^0.7.0",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "@types/node": "^25.9.1",
