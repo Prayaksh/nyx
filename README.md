@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./public/assets/NYX.svg" alt="NYX Banner" width="100%">
+</p>
+
 # 🌌 Nyx
 
 **Nyx** is a sophisticated AI-powered agent framework designed to bridge the gap between a command-line interface and external applications. It provides a versatile environment for interacting with AI through various "modes," allowing for everything from simple queries to complex agentic task execution.
@@ -70,7 +74,7 @@ bunx prettier --write .
 
 ### Testing
 
-*Note: No test suite is included yet.* Add your preferred testing framework (e.g., Vitest) and run:
+_Note: No test suite is included yet._ Add your preferred testing framework (e.g., Vitest) and run:
 
 ```bash
 bun test
@@ -113,6 +117,7 @@ Each mode has its own set of sub‑options; run `bun run index.ts <mode> --help`
 ## 🏗 Architecture
 
 Nyx is organized into modular components:
+
 - `/ai` – Core AI configuration and SDK integration.
 - `/modes` – Different operational modes (Agent, Ask, Plan) each with its own orchestrator.
 - `/tui` – Terminal User Interface components for a polished user experience.
@@ -125,4 +130,5 @@ Nyx is organized into modular components:
 - **Formatting**: `marked-terminal` for beautiful Markdown rendering in the console.
 
 ---
-*Developed with 💜 by Lumas*
+
+_Developed with 💜 by Lumas_

@@ -4,7 +4,6 @@ import figlet from "figlet";
 import { runCliMode } from "../modes/cli.ts";
 
 const BANNER_FONT = "ANSI SHADOW";
-
 const SHADOW = chalk.hex("#5e6be0");
 const FACE = chalk.hex("#ff89be").bold;
 
@@ -62,8 +61,8 @@ function printBannerWithShadow(ascii: string) {
   const skyEnd = Math.min(termWidth, leftPad + maxLen + 25);
 
   // ===== TOP SKY =====
-  skyRow(3, skyStart, skyEnd);
-  skyRow(2, skyStart, skyEnd);
+  skyRow(4, skyStart, skyEnd);
+  skyRow(5, skyStart, skyEnd);
 
   console.log();
 
@@ -82,8 +81,8 @@ function printBannerWithShadow(ascii: string) {
   console.log();
 
   // ===== BOTTOM SKY =====
-  skyRow(2, skyStart, skyEnd);
-  skyRow(3, skyStart, skyEnd);
+  skyRow(4, skyStart, skyEnd);
+  skyRow(5, skyStart, skyEnd);
 
   console.log();
 
