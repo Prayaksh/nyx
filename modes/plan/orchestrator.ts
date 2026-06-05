@@ -14,15 +14,7 @@ import type { PlanStep } from "./types.ts";
 import { createWebTools } from "./webTools.ts";
 
 function stepPrompt(goal: string, step: PlanStep): string {
-  return `
-Goal: ${goal}
-
-PLAN CONTEXT:
-${JSON.stringify(step, null, 2)}
-
-You are executing one step of a larger plan.
-Explain what information from previous planning influenced your work.
-`;
+  return [`Goal: ${goal}`, `Step: ${step.title}`, step.description].join("\n");
 }
 
 export async function runPlanMode(): Promise<void> {

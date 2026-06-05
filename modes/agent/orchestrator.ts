@@ -45,7 +45,7 @@ export async function runAgentMode() {
         const lastTool = toolCalls[toolCalls.length - 1];
         if (lastTool) {
           agentSpinner.message(
-            chalk.dim(`Executing: ${String(lastTool.toolName)}...\n`),
+            chalk.dim(`\n Executing: ${String(lastTool.toolName)}...\n`),
           );
         }
 

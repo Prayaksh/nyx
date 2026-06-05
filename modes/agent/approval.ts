@@ -65,14 +65,18 @@ function groupPending(pending: ActionLog[]): ReviewGroup[] {
 export async function runApprovalFlow(
   tracker: ActionTracker,
 ): Promise<boolean> {
+  const approvalSpinner = spinner();
+  approvalSpinner.start(chalk.dim("Executing approval flow"));
   const pending = tracker.getPendingMutations();
 
   if (pending.length === 0) {
+    approvalSpinner.stop();
     console.log(
       chalk.dim("\nNo staged file, folder, or shell changes to review.\n"),
     );
     return false;
   }
+  approvalSpinner.stop();
   const choice = await select({
     message: "Apply staged changes?",
     options: [
@@ -87,7 +91,9 @@ export async function runApprovalFlow(
   }
 
   if (choice === "all") {
+    approvalSpinner.start();
     for (const a of pending) tracker.updateStatus(a.id, "approved", true);
+    approvalSpinner.stop(chalk.dim("\n ✓ Approved changes"));
     return true;
   }
 
@@ -103,7 +109,9 @@ export async function runApprovalFlow(
       });
 
       if (isCancel(opt)) {
+        approvalSpinner.start();
         for (const a of pending) tracker.updateStatus(a.id, "rejected", false);
+        approvalSpinner.stop(chalk.dim("\n ✓ Cancelled staged changes"));
         return false;
       }
 

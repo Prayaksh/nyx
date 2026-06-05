@@ -53,7 +53,7 @@ Nyx includes infrastructure for external communication channels such as Telegram
 Clone the repository:
 
 ```bash
-git clone https://github.com/<your-username>/nyx.git
+git clone https://github.com/Prayaksh/nyx.git
 cd nyx
 ```
 
