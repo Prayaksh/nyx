@@ -8,7 +8,6 @@ import { stepCountIs, ToolLoopAgent } from "ai";
 import { getAgentModel } from "../../ai/ai.config.ts";
 import { renderTerminalMarkdown } from "../../tui/terminalMd.ts";
 import { runApprovalFlow } from "./approval.ts";
-import { setTimeout as sleep } from "node:timers/promises";
 import { spinner } from "@clack/prompts";
 
 export async function runAgentMode() {
@@ -45,7 +44,7 @@ export async function runAgentMode() {
         const lastTool = toolCalls[toolCalls.length - 1];
         if (lastTool) {
           agentSpinner.message(
-            chalk.dim(`\n Executing: ${String(lastTool.toolName)}...\n`),
+            chalk.dim(`Executing: ${String(lastTool.toolName)}...`),
           );
         }
 

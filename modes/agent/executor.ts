@@ -137,6 +137,87 @@ export class ToolExecutor {
     return `Staged update: ${key}`;
   }
 
+  writePartialFile(rel: string, search: string, replace: string): string {
+    if (!this.config.tools.allowFileModification)
+      throw new Error("File modification disabled");
+    this.assertNotExcluded(rel, "write_partial_file");
+
+    const before = this.getEffectiveText(rel);
+    if (before === undefined) {
+      throw new Error(`write_partial_file: file not found: ${rel}`);
+    }
+
+    if (!before.includes(search)) {
+      throw new Error(
+        `write_partial_file: search string not found in file: ${rel}`,
+      );
+    }
+
+    const after = before.replace(search, replace);
+
+    const key = this.norm(rel);
+    this.overlay.set(key, after);
+
+    this.tracker.log({
+      type: "file_modify",
+      path: key,
+      details: { before, after, toolName: "write_partial_file" },
+      status: "pending",
+    });
+
+    return `Staged partial update for: ${key}`;
+  }
+
+  insertAfter(rel: string, search: string, contentToInsert: string): string {
+    return this.writePartialFile(rel, search, `${search}${contentToInsert}`);
+  }
+
+  insertBefore(rel: string, search: string, contentToInsert: string): string {
+    return this.writePartialFile(rel, search, `${contentToInsert}${search}`);
+  }
+
+  appendFile(rel: string, contentToAppend: string): string {
+    if (!this.config.tools.allowFileModification)
+      throw new Error("File modification disabled");
+    this.assertNotExcluded(rel, "append_file");
+
+    const before = this.getEffectiveText(rel) ?? "";
+    const after = before + contentToAppend;
+
+    const key = this.norm(rel);
+    this.overlay.set(key, after);
+
+    this.tracker.log({
+      type: "file_modify",
+      path: key,
+      details: { before, after, toolName: "append_file" },
+      status: "pending",
+    });
+
+    return `Staged append for: ${key}`;
+  }
+
+  prependFile(rel: string, contentToPrepend: string): string {
+    if (!this.config.tools.allowFileModification)
+      throw new Error("File modification disabled");
+    this.assertNotExcluded(rel, "prepend_file");
+
+    const before = this.getEffectiveText(rel) ?? "";
+    const after = contentToPrepend + before;
+
+    const key = this.norm(rel);
+    this.overlay.set(key, after);
+
+    this.tracker.log({
+      type: "file_modify",
+      path: key,
+      details: { before, after, toolName: "prepend_file" },
+      status: "pending",
+    });
+
+    return `Staged prepend for: ${key}`;
+  }
+
   deleteFile(rel: string): string {
     if (!this.config.tools.allowFileModification)
       throw new Error("File deletion disabled");
@@ -265,6 +346,236 @@ export class ToolExecutor {
     return out || "(no matches)";
   }
 
+  findSymbol(symbolName: string): string {
+    const rootAbs = this.resolveSafe("");
+    let foundPath = "";
+
+    const walk = (dir: string) => {
+      if (foundPath) return;
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, ent.name);
+        const relP = path
+          .relative(this.config.codebasePath, full)
+          .split(path.sep)
+          .join("/");
+        if (this.excluded(relP)) continue;
+
+        if (ent.isDirectory()) {
+          walk(full);
+        } else if (
+          ent.name.endsWith(".ts") ||
+          ent.name.endsWith(".js") ||
+          ent.name.endsWith(".tsx")
+        ) {
+          const text = fs.readFileSync(full, "utf8");
+          const symbolRegex = new RegExp(
+            `\\b(class|interface|function|const|let|enum|type)\\s+${symbolName}\\b`,
+          );
+          if (symbolRegex.test(text)) {
+            foundPath = relP;
+            return;
+          }
+        }
+      }
+    };
+
+    walk(rootAbs);
+    if (!foundPath) throw new Error(`Symbol not found: ${symbolName}`);
+    return foundPath;
+  }
+
+  findReferences(symbolName: string): string {
+    const rootAbs = this.resolveSafe("");
+    const matches: string[] = [];
+
+    const walk = (dir: string) => {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, ent.name);
+        const relP = path
+          .relative(this.config.codebasePath, full)
+          .split(path.sep)
+          .join("/");
+        if (this.excluded(relP)) continue;
+
+        if (ent.isDirectory()) {
+          walk(full);
+        } else if (
+          ent.name.endsWith(".ts") ||
+          ent.name.endsWith(".js") ||
+          ent.name.endsWith(".tsx")
+        ) {
+          const text = fs.readFileSync(full, "utf8");
+          const lines = text.split("\n");
+          lines.forEach((line, index) => {
+            const regex = new RegExp(`\\b${symbolName}\\b`);
+            if (regex.test(line)) {
+              matches.push(`${relP}:${index + 1}: ${line.trim()}`);
+            }
+          });
+        }
+      }
+    };
+
+    walk(rootAbs);
+    return matches.join("\n") || "(no references found)";
+  }
+
+  renameSymbol(symbolName: string, newName: string): string {
+    if (!this.config.tools.allowFileModification)
+      throw new Error("File modification disabled");
+
+    const rootAbs = this.resolveSafe("");
+    let modifiedCount = 0;
+
+    const walk = (dir: string) => {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, ent.name);
+        const relP = path
+          .relative(this.config.codebasePath, full)
+          .split(path.sep)
+          .join("/");
+        if (this.excluded(relP)) continue;
+
+        if (ent.isDirectory()) {
+          walk(full);
+        } else if (
+          ent.name.endsWith(".ts") ||
+          ent.name.endsWith(".js") ||
+          ent.name.endsWith(".tsx")
+        ) {
+          const before = this.getEffectiveText(relP);
+          if (!before) continue;
+
+          const regex = new RegExp(`\\b${symbolName}\\b`, "g");
+          if (regex.test(before)) {
+            const after = before.replace(regex, newName);
+            const key = this.norm(relP);
+            this.overlay.set(key, after);
+
+            this.tracker.log({
+              type: "file_modify",
+              path: key,
+              details: { before, after, toolName: "rename_symbol" },
+              status: "pending",
+            });
+            modifiedCount++;
+          }
+        }
+      }
+    };
+
+    walk(rootAbs);
+    return `Staged symbol rename from '${symbolName}' to '${newName}' across ${modifiedCount} files.`;
+  }
+
+  getExports(rel: string): string {
+    this.assertNotExcluded(rel, "get_exports");
+    const abs = this.resolveSafe(rel);
+    if (!fs.existsSync(abs)) throw new Error(`File not found: ${rel}`);
+
+    const text = fs.readFileSync(abs, "utf8");
+    const lines = text.split("\n");
+    const exports: string[] = [];
+
+    const inlineExportRegex =
+      /^\s*export\s+(class|interface|function|const|let|enum|type)\s+([a-zA-Z0-9_]+)/;
+    const defaultExportRegex = /^\s*export\s+default\s+([a-zA-Z0-9_]+)/;
+    const namedExportBlockRegex = /export\s*\{([\s\S]*?)\}/g;
+
+    for (const line of lines) {
+      const inlineMatch = line.match(inlineExportRegex);
+      if (inlineMatch?.[2]) {
+        exports.push(inlineMatch[2]);
+        continue;
+      }
+
+      const defaultMatch = line.match(defaultExportRegex);
+      if (defaultMatch?.[1]) {
+        exports.push(`${defaultMatch[1]} (default)`);
+        continue;
+      }
+    }
+
+    let match;
+    while ((match = namedExportBlockRegex.exec(text)) !== null) {
+      const blockContent = match[1];
+      if (blockContent) {
+        blockContent.split(",").forEach((item) => {
+          const cleanedItem = item.replace(/[\}\s;]/g, "").split(/as/)[0];
+          if (cleanedItem) {
+            exports.push(cleanedItem);
+          }
+        });
+      }
+    }
+
+    return exports.join("\n") || "(no explicit exports found)";
+  }
+
+  getImports(rel: string): string {
+    this.assertNotExcluded(rel, "get_imports");
+    const abs = this.resolveSafe(rel);
+    if (!fs.existsSync(abs)) throw new Error(`File not found: ${rel}`);
+
+    const text = fs.readFileSync(abs, "utf8");
+    const lines = text.split("\n");
+    const imports: string[] = [];
+
+    const importRegex = /^\s*import\s+(?:.+?\s+from\s+)?['"]([^'"]+)['"]/;
+
+    for (const line of lines) {
+      const match = line.match(importRegex);
+      if (match?.[1]) {
+        imports.push(match[1]);
+      }
+    }
+
+    return imports.join("\n") || "(no imports found)";
+  }
+
+  dependencyGraph(): string {
+    const rootAbs = this.resolveSafe("");
+    const graph: string[] = [];
+    const importRegex = /^\s*import\s+(?:.+?\s+from\s+)?['"]([^'"]+)['"]/;
+
+    const walk = (dir: string) => {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, ent.name);
+        const relP = path
+          .relative(this.config.codebasePath, full)
+          .split(path.sep)
+          .join("/");
+        if (this.excluded(relP)) continue;
+
+        if (ent.isDirectory()) {
+          walk(full);
+        } else if (
+          ent.name.endsWith(".ts") ||
+          ent.name.endsWith(".js") ||
+          ent.name.endsWith(".tsx")
+        ) {
+          const text = fs.readFileSync(full, "utf8");
+          const lines = text.split("\n");
+          const dependencies: string[] = [];
+
+          for (const line of lines) {
+            const match = line.match(importRegex);
+            if (match?.[1]) {
+              dependencies.push(match[1]);
+            }
+          }
+
+          if (dependencies.length > 0) {
+            graph.push(`${relP} -> [${dependencies.join(", ")}]`);
+          }
+        }
+      }
+    };
+
+    walk(rootAbs);
+    return graph.join("\n") || "(empty codebase graph)";
+  }
+
   analyzeCodebase(rootRel: string): string {
     const rootAbs = this.resolveSafe(rootRel);
     if (!fs.existsSync(rootAbs))
@@ -319,6 +630,68 @@ export class ToolExecutor {
       path.join(homedir(), ".cursor/skills-cursor"),
       path.join(homedir(), ".claude/skills"),
     ];
+  }
+
+  private runGitCommand(args: string[]): string {
+    const result = spawnSync("git", args, {
+      cwd: this.config.codebasePath,
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
+    });
+
+    if (result.status !== 0) {
+      throw new Error(
+        `Git error (exit ${result.status}): ${result.stderr || result.stdout}`,
+      );
+    }
+
+    return result.stdout || "Success (no output)";
+  }
+
+  gitStatus(): string {
+    return this.runGitCommand(["status", "--porcelain"]);
+  }
+
+  gitDiff(): string {
+    return this.runGitCommand(["diff"]);
+  }
+
+  gitCommit(message: string): string {
+    if (!this.config.tools.allowShellExecution) {
+      throw new Error("Git mutation disabled: shell execution is turned off");
+    }
+    this.runGitCommand(["add", "."]);
+    return this.runGitCommand(["commit", "-m", message]);
+  }
+
+  gitBranch(): string {
+    return this.runGitCommand(["branch", "-a"]);
+  }
+
+  gitCheckout(branchOrCommit: string): string {
+    if (!this.config.tools.allowShellExecution) {
+      throw new Error("Git mutation disabled: shell execution is turned off");
+    }
+    return this.runGitCommand(["checkout", branchOrCommit]);
+  }
+
+  gitLog(limit: number = 10): string {
+    return this.runGitCommand(["log", `-${limit}`, "--oneline"]);
+  }
+
+  revertChanges(): string {
+    if (!this.config.tools.allowShellExecution) {
+      throw new Error("Git mutation disabled: shell execution is turned off");
+    }
+    // Discard unstaged changes in working directory
+    this.runGitCommand(["checkout", "--", "."]);
+    // Discard any staged changes
+    this.runGitCommand(["reset", "HEAD", "."]);
+
+    // Also clear your internal overlay and deleted caches
+    this.clearStaging();
+
+    return "Reverted all uncommitted changes on disk and cleared tool staging memory.";
   }
 
   listSkills(): string {
